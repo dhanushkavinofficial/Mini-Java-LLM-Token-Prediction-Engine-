@@ -1,0 +1,128 @@
+import java.util.*;
+
+class Tokenizer {
+
+    public List<String> tokenize(String text) {
+        text = text.toLowerCase();
+        String[] tokens = text.split("\\s+");
+        return Arrays.asList(tokens);
+    }
+}
+
+class Vocabulary {
+
+    private Set<String> vocab = new HashSet<>();
+
+    public void addTokens(List<String> tokens) {
+        vocab.addAll(tokens);
+    }
+
+    public Set<String> getVocabulary() {
+        return vocab;
+    }
+}
+
+class ProbabilityModel {
+
+    private Map<String, Map<String, Integer>> transitionMap = new HashMap<>();
+
+    public void train(List<String> tokens) {
+
+        for(int i = 0; i < tokens.size() - 1; i++) {
+
+            String current = tokens.get(i);
+            String next = tokens.get(i + 1);
+
+            transitionMap
+                .computeIfAbsent(current, k -> new HashMap<>())
+                .merge(next, 1, Integer::sum);
+        }
+    }
+
+    public String getNextToken(String token) {
+
+        Map<String, Integer> nextTokens = transitionMap.get(token);
+
+        if(nextTokens == null) return null;
+
+        return nextTokens.entrySet()
+                .stream()
+                .max(Map.Entry.comparingByValue())
+                .get()
+                .getKey();
+    }
+}
+
+class PredictionEngine {
+
+    private ProbabilityModel model;
+
+    public PredictionEngine(ProbabilityModel model) {
+        this.model = model;
+    }
+
+    public String generate(String startToken, int length) {
+
+        StringBuilder result = new StringBuilder(startToken);
+
+        String current = startToken;
+
+        for(int i = 0; i < length; i++) {
+
+            String next = model.getNextToken(current);
+
+            if(next == null) break;
+
+            result.append(" ").append(next);
+
+            current = next;
+        }
+
+        return result.toString();
+    }
+}
+
+class MiniLLM {
+
+    private Tokenizer tokenizer = new Tokenizer();
+    private Vocabulary vocabulary = new Vocabulary();
+    private ProbabilityModel model = new ProbabilityModel();
+    private PredictionEngine predictor = new PredictionEngine(model);
+
+    public void train(String text) {
+
+        List<String> tokens = tokenizer.tokenize(text);
+
+        vocabulary.addTokens(tokens);
+
+        model.train(tokens);
+    }
+
+    public String generate(String startWord) {
+
+        return predictor.generate(startWord, 10);
+    }
+}
+
+public class Main {
+
+    public static void main(String[] args) {
+
+        MiniLLM llm = new MiniLLM();
+
+        String trainingData = """
+        java is powerful
+        java is used for backend
+        java is used for enterprise software
+        software engineers love java
+        java is fast
+        """;
+
+        llm.train(trainingData);
+
+        String output = llm.generate("java");
+
+        System.out.println("Generated Text:");
+        System.out.println(output);
+    }
+}
